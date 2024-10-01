@@ -167,9 +167,17 @@ const path = require('path');
 
 // Serve the HTML file
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'users.html'));
+    res.sendFile(path.join(__dirname, 'shift_assignment.html'));
 });
 
 app.get('/shifts.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'shifts.html'));
+});
+
+app.get('/users.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'users.html'));
+});
+
+app.get('/shift_assignment.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'shift_assignment.html'));
 });

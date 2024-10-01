@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shift Assignment</title>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var shiftForm = document.getElementById('shiftForm');
+            var shiftTable = document.getElementById('shiftTable');
+            var prevWeekBtn = document.getElementById('prevWeek');
+            var nextWeekBtn = document.getElementById('nextWeek');
+            var currentDate = new Date();
+            var shifts = [];
+
+            // Fetch and display shifts
+            function fetchShifts() {
+                return fetch('/shifts')
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        shifts = data;
+                        var shiftSelect = document.getElementById('shiftSelect');
+                        shiftSelect.innerHTML = '';
+                        shifts.forEach(function(shift) {
+                            var option = document.createElement('option');
+                            option.value = shift.id;
+                            option.textContent = shift.shift + ' (' + shift.start_hour + ' - ' + shift.end_hour + ')';
+                            shiftSelect.appendChild(option);
+                        });
+                    });
+            }
+
+            // Fetch and display users
+            function fetchUsers() {
+                return fetch('/users')
+                    .then(function(response) { return response.json(); });
+            }
+
+            // Fetch and display shift assignments
+            function fetchShiftAssignments(startDate) {
+                var endDate = new Date(startDate);
+                endDate.setDate(endDate.getDate() + 6);
+
+                fetch('/shift_assignment?start_date=' + startDate.toISOString().split('T')[0] + '&end_date=' + endDate.toISOString().split('T')[0])
+                    .then(function(response) { return response.json(); })
+                    .then(function(assignments) {
+                        shiftTable.innerHTML = '';
+                        var headerRow = document.createElement('tr');
+                        headerRow.innerHTML = '<th>Date</th>' + Array.from({ length: 7 }, function(_, index) {
+                            var date = new Date(startDate);
+                            date.setDate(date.getDate() + index);
+                            return '<th>' + date.toISOString().split('T')[0] + '</th>';
+                        }).join('');
+                        shiftTable.appendChild(headerRow);
+
+                        var userAssignments = {};
+                        assignments.forEach(function(assignment) {
+                            if (!userAssignments[assignment.user_id]) {
+                                userAssignments[assignment.user_id] = {};
+                            }
+                            userAssignments[assignment.user_id][assignment.date] = assignment.shift_id;
+                        });
+
+                        fetchUsers().then(function(users) {
+                            users.forEach(function(user) {
+                                var row = document.createElement('tr');
+                                row.innerHTML = '<td>' + user.username + '</td>' + Array.from({ length: 7 }, function(_, index) {
+                                    var date = new Date(startDate);
+                                    date.setDate(date.getDate() + index);
+                                    var dateString = date.toISOString().split('T')[0];
+                                    var shiftId = userAssignments[user.id] ? userAssignments[user.id][dateString] : null;
+                                    var shiftOptions = shifts.map(function(shift) {
+                                        return '<option value="' + shift.id + '" ' + (shift.id === shiftId ? 'selected' : '') + '>' + shift.shift + '</option>';
+                                    }).join('');
+                                    return '<td><select data-user-id="' + user.id + '" data-date="' + dateString + '">' + shiftOptions + '</select></td>';
+                                }).join('');
+                                shiftTable.appendChild(row);
+                            });
+                        });
+                    });
+            }
+
+            // Add or update shift assignment
+            shiftForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var formData = new FormData(shiftForm);
+                var userId = formData.get('user_id');
+                var shiftId = formData.get('shift_id');
+                var date = formData.get('date');
+
+                fetch('/shift_assignment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        shift_id: shiftId,
+                        date: date
+                    })
+                }).then(function() {
+                    shiftForm.reset();
+                    fetchShiftAssignments(getStartOfWeek(currentDate));
+                });
+            });
+
+            // Get the start of the week (Monday)
+            function getStartOfWeek(date) {
+                var startOfWeek = new Date(date);
+                var day = startOfWeek.getDay();
+                var diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+                startOfWeek.setDate(diff);
+                return startOfWeek;
+            }
+
+            // Navigate to previous week
+            prevWeekBtn.addEventListener('click', function() {
+                currentDate.setDate(currentDate.getDate() - 7);
+                fetchShiftAssignments(getStartOfWeek(currentDate));
+            });
+
+            // Navigate to next week
+            nextWeekBtn.addEventListener('click', function() {
+                currentDate.setDate(currentDate.getDate() + 7);
+                fetchShiftAssignments(getStartOfWeek(currentDate));
+            });
+
+            // Update shift assignment on dropdown change
+            shiftTable.addEventListener('change', function(e) {
+                if (e.target.tagName === 'SELECT') {
+                    var userId = e.target.getAttribute('data-user-id');
+                    var date = e.target.getAttribute('data-date');
+                    var shiftId = e.target.value;
+
+                    fetch('/shift_assignment', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            user_id: userId,
+                            shift_id: shiftId,
+                            date: date
+                        })
+                    }).then(function() {
+                        fetchShiftAssignments(getStartOfWeek(currentDate));
+                    });
+                }
+            });
+
+            fetchShifts().then(function() {
+                fetchUsers();
+                fetchShiftAssignments(getStartOfWeek(currentDate));
+            });
+        });
+    </script>
+</head>
+<body>
+
+    <nav>
+        <a href="users.html">Users</a>
+        <a href="shifts.html">Shifts</a>
+
+    <h1>Shift Assignment</h1>
+    <form id="shiftForm">
+        <div>
+            <label for="userSelect">User:</label>
+            <select id="userSelect" name="user_id" required></select>
+        </div>
+        <div>
+            <label for="shiftSelect">Shift:</label>
+            <select id="shiftSelect" name="shift_id" required></select>
+        </div>
+        <div>
+            <label for="date">Date:</label>
+            <input type="date" id="date" name="date" required>
+        </div>
+        <button type="submit">Assign Shift</button>
+    </form>
+    <h2>Weekly Schedule</h2>
+    <button id="prevWeek">Previous Week</button>
+    <button id="nextWeek">Next Week</button>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Day</th>
+                <th>Monday</th>
+                <th>Tuesday</th>
+                <th>Wednesday</th>
+                <th>Thursday</th>
+                <th>Friday</th>
+                <th>Saturday</th>
+                <th>Sunday</th>
+            </tr>
+        </thead>
+        <tbody id="shiftTable"></tbody>
+    </table>
+</body>
+</html>
