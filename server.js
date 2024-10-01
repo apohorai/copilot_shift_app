@@ -1,7 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const db = require('./database_users');
-
+const db_shifts = require('./database_shifts');
 const app = express();
 const port = 3000;
 
@@ -57,6 +57,56 @@ app.delete('/users/:id', (req, res) => {
     stmt.finalize();
 });
 
+// Create Shift
+app.post('/shifts', (req, res) => {
+    const { shift, color, start_hour, end_hour } = req.body;
+    const stmt = db_shifts.prepare("INSERT INTO shifts (shift, color, start_hour, end_hour) VALUES (?, ?, ?, ?)");
+    stmt.run(shift, color, start_hour, end_hour, function(err) {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.status(201).json({ id: this.lastID });
+    });
+    stmt.finalize();
+});
+
+// Read Shifts
+app.get('/shifts', (req, res) => {
+    db_shifts.all("SELECT * FROM shifts", (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows);
+    });
+});
+
+// Update Shift
+app.put('/shifts/:id', (req, res) => {
+    const { id } = req.params;
+    const { shift, color, start_hour, end_hour } = req.body;
+    const stmt = db_shifts.prepare("UPDATE shifts SET shift = ?, color = ?, start_hour = ?, end_hour = ? WHERE id = ?");
+    stmt.run(shift, color, start_hour, end_hour, id, function(err) {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ changes: this.changes });
+    });
+    stmt.finalize();
+});
+
+// Delete Shift
+app.delete('/shifts/:id', (req, res) => {
+    const { id } = req.params;
+    const stmt = db_shifts.prepare("DELETE FROM shifts WHERE id = ?");
+    stmt.run(id, function(err) {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ changes: this.changes });
+    });
+    stmt.finalize();
+});
+
 // Start Server
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
@@ -69,3 +119,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'users.html'));
 });
 
+app.get('/shifts.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'shifts.html'));
+});

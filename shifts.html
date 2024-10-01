@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shift Management</title>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const shiftForm = document.getElementById('shiftForm');
+            const shiftTable = document.getElementById('shiftTable');
+
+            // Fetch and display shifts
+            function fetchShifts() {
+                fetch('/shifts')
+                    .then(response => response.json())
+                    .then(shifts => {
+                        if (!Array.isArray(shifts)) {
+                            throw new Error('Expected an array of shifts');
+                        }
+                        shiftTable.innerHTML = '';
+                        shifts.forEach(shift => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${shift.id}</td>
+                                <td>${shift.shift}</td>
+                                <td>${shift.color}</td>
+                                <td>${shift.start_hour}</td>
+                                <td>${shift.end_hour}</td>
+                                <td>
+                                    <button onclick="editShift(${shift.id}, '${shift.shift}', '${shift.color}', '${shift.start_hour}', '${shift.end_hour}')">Edit</button>
+                                    <button onclick="deleteShift(${shift.id})">Delete</button>
+                                </td>
+                            `;
+                            shiftTable.appendChild(row);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching shifts:', error);
+                    });
+            }
+
+            // Add or update shift
+            shiftForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(shiftForm);
+                const id = formData.get('id');
+                const method = id ? 'PUT' : 'POST';
+                const url = id ? `/shifts/${id}` : '/shifts';
+
+                fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        shift: formData.get('shift'),
+                        color: formData.get('color'),
+                        start_hour: formData.get('start_hour'),
+                        end_hour: formData.get('end_hour')
+                    })
+                }).then(() => {
+                    shiftForm.reset();
+                    fetchShifts();
+                });
+            });
+
+            // Edit shift
+            window.editShift = (id, shift, color, start_hour, end_hour) => {
+                shiftForm.elements['id'].value = id;
+                shiftForm.elements['shift'].value = shift;
+                shiftForm.elements['color'].value = color;
+                shiftForm.elements['start_hour'].value = start_hour;
+                shiftForm.elements['end_hour'].value = end_hour;
+            };
+
+            // Delete shift
+            window.deleteShift = (id) => {
+                fetch(`/shifts/${id}`, {
+                    method: 'DELETE'
+                }).then(() => {
+                    fetchShifts();
+                });
+            };
+
+            fetchShifts();
+        });
+    </script>
+</head>
+<body>
+    <h1>Shift Management</h1>
+    <form id="shiftForm">
+        <input type="hidden" name="id">
+        <div>
+            <label for="shift">Shift:</label>
+            <input type="text" name="shift" required>
+        </div>
+        <div>
+            <label for="color">Color (RGB):</label>
+            <input type="text" name="color" required>
+        </div>
+        <div>
+            <label for="start_hour">Start Hour:</label>
+            <input type="text" name="start_hour" required>
+        </div>
+        <div>
+            <label for="end_hour">End Hour:</label>
+            <input type="text" name="end_hour" required>
+        </div>
+        <button type="submit">Submit</button>
+    </form>
+    <h2>Shifts</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Shift</th>
+                <th>Color</th>
+                <th>Start Hour</th>
+                <th>End Hour</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="shiftTable"></tbody>
+    </table>
+</body>
+</html>
