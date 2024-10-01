@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management</title>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const userForm = document.getElementById('userForm');
+            const userTable = document.getElementById('userTable');
+
+            // Fetch and display users
+            function fetchUsers() {
+                fetch('/users')
+                    .then(response => response.json())
+                    .then(users => {
+                        userTable.innerHTML = '';
+                        users.forEach(user => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${user.id}</td>
+                                <td>${user.username}</td>
+                                <td>${user.role}</td>
+                                <td>
+                                    <button onclick="editUser(${user.id}, '${user.username}', '${user.role}')">Edit</button>
+                                    <button onclick="deleteUser(${user.id})">Delete</button>
+                                </td>
+                            `;
+                            userTable.appendChild(row);
+                        });
+                    });
+            }
+
+            // Add or update user
+            userForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(userForm);
+                const id = formData.get('id');
+                const method = id ? 'PUT' : 'POST';
+                const url = id ? `/users/${id}` : '/users';
+
+                fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: formData.get('username'),
+                        role: formData.get('role')
+                    })
+                }).then(() => {
+                    userForm.reset();
+                    fetchUsers();
+                });
+            });
+
+            // Edit user
+            window.editUser = (id, username, role) => {
+                userForm.elements['id'].value = id;
+                userForm.elements['username'].value = username;
+                userForm.elements['role'].value = role;
+            };
+
+            // Delete user
+            window.deleteUser = (id) => {
+                fetch(`/users/${id}`, {
+                    method: 'DELETE'
+                }).then(() => {
+                    fetchUsers();
+                });
+            };
+
+            fetchUsers();
+        });
+    </script>
+</head>
+<body>
+    <h1>User Management</h1>
+    <form id="userForm">
+        <input type="hidden" name="id">
+        <div>
+            <label for="username">Username:</label>
+            <input type="text" name="username" required>
+        </div>
+        <div>
+            <label for="role">Role:</label>
+            <select name="role" required>
+                <option value="admin">Admin</option>
+                <option value="manager">Manager</option>
+                <option value="user">User</option>
+            </select>
+        </div>
+        <button type="submit">Submit</button>
+    </form>
+    <h2>Users</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="userTable"></tbody>
+    </table>
+</body>
+</html>
